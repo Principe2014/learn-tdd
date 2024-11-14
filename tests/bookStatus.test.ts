@@ -56,4 +56,40 @@ describe("showAllBooksStatus", () => {
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.send).toHaveBeenCalledWith([]);
     });
+
+    it("should return 500 if there is an error fetching the books", async () => {
+        BookInstance.find = jest.fn().mockImplementation(() => {
+            throw new Error("Database error");
+        });
+        await showAllBooksStatus(res as Response);
+        expect(res.status).toHaveBeenCalledWith(500);
+        expect(res.send).toHaveBeenCalledWith("Status not found");
+    });
+
+    it("should exclude books with status other than 'Available'", async () => {
+        const mixedAvailBooks = [
+            { book: { title: "Available Book" }, status: "Available" },
+            { book: { title: "Checked Out Book" }, status: "Checked Out" }
+        ];
+        const mockFind = jest.fn().mockReturnValue({
+            populate: jest.fn().mockResolvedValue(mixedAvailBooks)
+        });
+        BookInstance.find = mockFind;
+        await showAllBooksStatus(res as Response);
+        expect(res.status).toHaveBeenCalledWith(200);
+        expect(res.send).toHaveBeenCalledWith(["Available Book : Available", "Checked Out Book : Checked Out"]);
+    });
+
+    it("should handle cases where book title is missing", async () => {
+        const mockBooksWithMissingTitle = [
+            { book: { title: null }, status: "Available" }
+        ];
+        const mockFind = jest.fn().mockReturnValue({
+            populate: jest.fn().mockResolvedValue(mockBooksWithMissingTitle)
+        });
+        BookInstance.find = mockFind;
+        await showAllBooksStatus(res as Response);
+        expect(res.status).toHaveBeenCalledWith(200);
+        expect(res.send).toHaveBeenCalledWith(["null : Available"]);
+    });
 });

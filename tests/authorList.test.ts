@@ -1,5 +1,7 @@
-import Author from '../models/author'; // Adjust the import to your Author model path
-import { getAuthorList } from '../pages/authors'; // Adjust the import to your function
+import Author from '../models/author';
+import { getAuthorList } from '../pages/authors'; 
+import { Response } from 'express';
+import { showAllAuthors } from '../pages/authors';
 
 describe('getAuthorList', () => {
     afterEach(() => {
@@ -111,5 +113,89 @@ describe('getAuthorList', () => {
 
         // Assert: Verify the result is an empty array
         expect(result).toEqual([]);
+    });
+});
+
+
+describe('showAllAuthors', () => {
+    afterEach(() => {
+        jest.resetAllMocks();
+    });
+
+    it('should send a list of authors when data is available', async () => {
+        const mockAuthors = [
+          {
+            first_name: 'Adam',
+            family_name: 'Mickiewicz',
+            date_of_birth: new Date('1798-12-24'),
+            date_of_death: new Date('1855-11-26'),
+          },
+          {
+            first_name: 'Henryk',
+            family_name: 'Sienkiewicz',
+            date_of_birth: new Date('1846-05-05'),
+            date_of_death: new Date('1916-11-15'),
+          },
+        ];
+    
+        
+        const mockFind = jest.fn().mockReturnValue({
+            sort: jest.fn().mockResolvedValue(mockAuthors)
+        });
+
+        Author.find = mockFind;
+
+        const mockRes = {
+            send: jest.fn()
+        } as unknown as Response;
+
+        await showAllAuthors(mockRes);
+
+        expect(mockRes.send).toHaveBeenCalledWith([
+            'Mickiewicz, Adam: 1798 - 1855',
+            'Sienkiewicz, Henryk: 1846 - 1916',
+          ]);   
+    });
+
+    it('should send "No authors found" when no authors are available', async () => {
+        const mockFind = jest.fn().mockReturnValue({
+            sort: jest.fn().mockResolvedValue([])
+        });
+
+        Author.find = mockFind;
+
+        const mockRes = {
+            send: jest.fn()
+        } as unknown as Response;
+
+        await showAllAuthors(mockRes);
+
+        expect(mockRes.send).toHaveBeenCalledWith('No authors found');
+    });
+
+    it('should handle errors and sends "No authors found" when an error occurs', async () => {
+        Author.find = jest.fn().mockImplementation(() => {
+            throw new Error('Database error');
+        });
+
+        const mockRes = {
+            send: jest.fn()
+        } as unknown as Response;
+
+        await showAllAuthors(mockRes);
+
+        expect(mockRes.send).toHaveBeenCalledWith('No authors found');
+    });
+
+    it('should handle deformed response objects', async () => {
+        const mockRes = {
+            send: jest.fn().mockImplementationOnce(() => {
+                throw new Error('Response error');
+            }),
+        } as unknown as Response;
+    
+        await showAllAuthors(mockRes)
+        
+        expect(mockRes.send).toHaveBeenCalledWith('No authors found');
     });
 });
